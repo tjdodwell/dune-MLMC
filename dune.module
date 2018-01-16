@@ -1,0 +1,10 @@
+################################
+# Dune module information file #
+################################
+
+#Name of the module
+Module: dune-MLMC
+Version: 0
+Maintainer: t
+#depending on
+Depends: dune-common dune-geometry dune-grid dune-localfunctions dune-istl dune-typetree dune-functions dune-pdelab

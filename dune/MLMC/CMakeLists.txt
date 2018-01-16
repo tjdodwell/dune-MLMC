@@ -1,0 +1,2 @@
+#install headers
+install(FILES MLMC.hh DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/dune/MLMC)
