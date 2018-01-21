@@ -1,3 +1,6 @@
+#ifndef localStress_h
+#define localStress_h
+
 // -*- tab-width: 4; c-basic-offset: 2; indent-tabs-mode: nil -*-
 
 #include <vector>
@@ -9,20 +12,16 @@
 #include <dune/geometry/referenceelements.hh>
 #include <dune/geometry/quadraturerules.hh>
 
-//#include "defaultimp.hh"
-//#include "pattern.hh"
-#include "flags.hh"
-//#include "idefault.hh"
 
 namespace Dune {
     namespace PDELab {
 
         template <class PARAM, int nedof, int dim>
-        class FailureCriterion : public NumericalJacobianApplyVolume<FailureCriterion<PARAM,nedof,dim> >,
+        class LocalStress : public NumericalJacobianApplyVolume<LocalStress<PARAM,nedof,dim> >,
         public FullVolumePattern,
         public LocalOperatorDefaultFlags,
         public InstationaryLocalOperatorDefaultMethods<double>,
-        public NumericalJacobianVolume<FailureCriterion<PARAM,nedof,dim> >
+        public NumericalJacobianVolume<LocalStress<PARAM,nedof,dim> >
         {
         public:
             // pattern assembly flags
@@ -31,9 +30,8 @@ namespace Dune {
             // residual assembly flags
             enum { doAlphaVolume = true };
 
-
-            FailureCriterion(PARAM& param_,Dune::FieldVector<double,dim>& y_, double radius_, double Ratio_, double tau_y_, int intorder_=2)
-            : param(param_),y(y_),radius(radius_),Ratio(Ratio_),tau_y(tau_y_),intorder(intorder_)
+            LocalStress(PARAM& param_,Dune::FieldVector<double,dim>& y_, double radius_,int intorder_=2)
+            : param(param_),y(y_),radius(radius_),intorder(intorder_)
             {}
 
             // volume integral depending on test and ansatz functions
@@ -72,16 +70,11 @@ namespace Dune {
               typedef typename LFSU_ROT3::Traits::FiniteElementType::Traits::LocalBasisType::Traits::JacobianType JacobianTypeR;
               typedef typename LFSU_ROT3::Traits::FiniteElementType::Traits::LocalBasisType::Traits::RangeType Range;
 
-              // Failure Values Material Properties
-              double sig_TY = tau_y / (Ratio * Ratio);
-
-              double max_failure_c = 0.0;
-
               // select quadrature rule
               auto geo = eg.geometry();
               const QuadratureRule<double,dim>& rule = QuadratureRules<double,dim>::rule(geo.type(),intorder);
 
-              Dune::FieldMatrix<double,6,6> C = param.evaluateLocalMatrix(); // I.e. tensor independent of C
+              double sn = 0.0;
 
                 // Loop over quadrature points
                 for (const auto& ip : rule)
@@ -133,30 +126,27 @@ namespace Dune {
 
                   B.mv(d,e); // Compute Cosserat Strain at Integration Point
 
-                  Dune::FieldVector<double,2> xg = eg.geometry().global(ip.position()); // Find Global Coordinates of Integration Point
+                  Dune::FieldVector<double,2> xg = eg.geometry().global(ip.position());
 
-                  Dune::FieldMatrix<double,6,6> T = param.evaluateRotation(xg); // Evaluate Cosserat Tensor at Integration Point
+                  Dune::FieldMatrix<double,6,6> C = param.evaluateMatrix(xg);
 
-                  Dune::FieldVector<double,6> el(0.0);
+                  C.mv(e,s); // Compute Stress
 
-                  T.mv(e,el); // Compute local strains and curvatures
-
-                  C.mv(el,s); // Compute Local Cosserat Stress at Integration Point
+                  double factor = ip.weight() * eg.geometry().integrationElement(ip.position());
 
                   // Compute Failure criterion at Intergration Point - Quadratic Yield criterion
-                  double failure_criterion_ip = 0.0;
                   if (std::abs(xg[0] - y[0]) < radius && std::abs(xg[1] - y[1]) < radius){
-                  failure_criterion_ip = std::sqrt(std::pow(s[2]/tau_y,2) + std::pow(s[1]/sig_TY,2));
-                    if (failure_criterion_ip > max_failure_c){
-                      max_failure_c = failure_criterion_ip;
-                    }
+
+                  //  std::cout << "Strain" << e << std::endl;
+                  //  std::cout << "Stress" << s << std::endl;
+                    r.accumulate(lfsv,0,s[0]*factor);
                   } // If Integration Point is with Sub-Region
 
                 } // end for each Intgeration Point
 
 
                 // Write Max_failure_c to element
-                r.accumulate(lfsv,0,max_failure_c);
+
 
 
             } // end alpha_volume
@@ -165,7 +155,7 @@ namespace Dune {
         private:
             int intorder;
             Dune::FieldVector<double,dim>& y;
-            double radius, Ratio, tau_y;
+            double radius;
             PARAM& param;
 
         };
@@ -173,3 +163,5 @@ namespace Dune {
 
 }
 }
+
+#endif

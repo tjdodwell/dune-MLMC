@@ -17,9 +17,9 @@
   #1 - last updated 9th May 2016.
 */
 
-#include "QoI.hh" // Include LocalOperator for Quantity of Interest
-#include "Cosserat/localStress.hh"
-#include "evalTensor.hh"
+#include "../PDEs/user_QoI.hh" // Include LocalOperator for Quantity of Interest
+#include "../PDEs/localStress.hh"
+#include "../PDEs/evalTensor.hh"
 
 template <class PARAM,class GFS0, class GFS1, class MBE, class U,class GV,int nedof>
 double inline QuantityofInterest(PARAM& param,GFS0& gfs0, GFS1& gfs1, MBE& mbe, U& x,GV& gv, double PatchSize,double Ratio, double tau_y){

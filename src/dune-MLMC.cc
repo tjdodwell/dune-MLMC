@@ -90,12 +90,24 @@ Dune::ParameterTree config;
 
 #include <dune/pdelab/adaptivity/adaptivity.hh>
 
-// -- Problem Specific Includes
+// *** Problem Specific Includes ***
 
-#include "user_inputs/Random_Coeff/random_coeff.hh"
-#include "user_inputs/user_model_cosserat.hh"
+#include "RandomFields/random_coeff.hh"
 
-#include "user_inputs/onesolution.hh"
+ // Test Case 1 - Computing Expected Value of Strength
+
+#include "Test_Case_1/user_sample_container.hh"
+#include "Test_Case_1/user_model.hh"
+
+// Test Case 2 - Computing Failure probabilty of failure below level sigma_star 
+
+
+//#include "Test_Case_2/user_sample_container.hh"
+//#include "Test_Case_2/user_model.hh"
+
+// -- MLMC includes
+
+#include "Algorithms/GreedyMLMC.hh"
 
 int main(int argc, char** argv)
 {
@@ -119,20 +131,40 @@ int main(int argc, char** argv)
 
       typedef Dune::YaspGrid<dim> GRID;
 
-      GRID grid(L,N,periodic,overlap);
+      GRID grid(L,N,periodic,overlap,MPI_COMM_SELF);
 
       int maxLevel = config.get<int>("maxLevel",5);
 
       grid.globalRefine(maxLevel);
 
-      typedef MODEL<dim,GRID> MY_MODEL;
+      if(config.get<int>("TestCase",1) == 1){
 
-      MY_MODEL model(grid,L);
+            typedef TestCase1<dim,GRID> MY_MODEL;
 
-      testSamples<MY_MODEL> myTest(model);
+            MY_MODEL model(grid,L);
 
-      myTest.apply(5);
+            GreedyMLMC<MY_MODEL,SampleContainer_TestCase1> mySimulation(model);
 
+            mySimulation.apply(config.get<double>("MLMC.eps",1.0));
 
+      }
+     // else{
+
+           // typedef TestCase2<dim,GRID> MODEL_TC2;
+
+           // MODEL_TC2 tc2(grid,L);
+
+            /*GreedyMLMC<MODEL_TC2,SampleContainer_TestCase2> mySimulation(tc2);
+
+            mySimulation.apply(config.get<double>("MLMC.eps",1.0));*/
+
+        //    int i = 10;
+
+      //}
+      
+
+      MPI_Finalize();
+
+      return 0;
 
 }

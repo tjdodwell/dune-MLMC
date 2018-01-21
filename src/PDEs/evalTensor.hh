@@ -1,5 +1,8 @@
 // -*- tab-width: 4; c-basic-offset: 2; indent-tabs-mode: nil -*-
 
+#ifndef evalTen_h
+#define evalTen_h
+
 #include <vector>
 
 #include <dune/common/exceptions.hh>
@@ -60,3 +63,5 @@ namespace Dune {
 
 }
 }
+
+#endif

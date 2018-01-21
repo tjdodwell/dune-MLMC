@@ -1,3 +1,6 @@
+#ifndef Cosserat_h
+#define Cosserat_h
+
 #include <vector>
 #include <dune/common/exceptions.hh>
 #include <dune/common/fvector.hh>
@@ -5,8 +8,6 @@
 #include <dune/geometry/referenceelements.hh>
 #include <dune/geometry/quadraturerules.hh>
 #include <dune/pdelab/finiteelementmap/pkfem.hh>
-
-//#include "../../model_inputs/helpful_functions.hh"
 
 using namespace std;
 
@@ -141,8 +142,6 @@ void alpha_volume (const EG& eg, const LFSU& lfsu, const X& x, const LFSV& lfsv,
 
         C.mv(e,s);
 
-        std::cout << C << std::endl;
-
         Dune::FieldVector<double,nedof> res(0.0);
 
         B.mtv(s,res); // res_u = Bt * sig;
@@ -175,3 +174,5 @@ void alpha_volume (const EG& eg, const LFSU& lfsu, const X& x, const LFSV& lfsv,
 
     }
 }
+
+#endif

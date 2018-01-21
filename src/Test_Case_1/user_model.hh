@@ -1,6 +1,6 @@
 
-#include "Cosserat/Cosserat.hh"
-#include "QuantityofInterest.hh"
+#include "../PDEs/Cosserat.hh"
+#include "user_QuantityofInterest.hh"
 
 // ------------------------------------------------------------------------
 //             Dirichlet Boundary Conditions Class
@@ -64,7 +64,7 @@ public:
 
 
 template<int dim, class GRID>
-class MODEL{
+class TestCase1{
 
 public:
 
@@ -72,7 +72,7 @@ public:
 
   Dune::FieldVector<double,dim> L;
 
-  double Vf, d, E1, E2, G12, nu12,ellx,elly, sigKL,tau_y, PatchSize,CB;
+  double Vf, d, E1, E2, G12, nu12,ellx,elly, sigKL,tau_y, PatchSize,CB, maxLevel;
 
   Dune::FieldMatrix<double,6,6> D;
 
@@ -84,7 +84,7 @@ public:
 
   GRID& grid;
 
-  MODEL(GRID& grid_, Dune::FieldVector<double,dim> & L_):grid(grid_), L(L_){
+  TestCase1(GRID& grid_, Dune::FieldVector<double,dim> & L_):grid(grid_), L(L_){
 
     Dune::FieldMatrix<double,3,3> Q(0.0);
 
@@ -105,31 +105,45 @@ public:
 
     numKLmodes = config.get<int>("RandomField.numKLmodes",100);; //         - Number of KL Modes
 
-
-    // Derived Properties
-
-    double nu21 = nu12 * (E2 / E1);
-    double factor =  1.0 - nu12  * nu21;
-
-    Q[0][0] = E1 / factor;
-    Q[0][1] = ( nu12 * E2 ) / factor;
-    Q[1][0] = Q[0][1];
-    Q[1][1] = E2 / factor;
-    Q[2][2] = G12;
-
-    CB = E1 * (d * d) / 16.0;
-
-    D = 0.0;
-    for (int i = 0; i < 3; i++){for (int j = 0; j < 3; j++){ D[i][j] = Q[i][j]; }}
-    D[2][3] = Q[2][2];
-    D[3][2] = Q[2][2];
-    D[3][3] = Vf * E1 /(2.0 * (1.0 - 0.2)) + (1.0 - Vf) * G12;
-    D[4][4] = CB * (D[3][3] - D[2][2]) / D[3][3];
-
+  
+    computeM();
 
   };
 
-  double inline getSample(int l, RandomField& z) const{
+
+  void inline computeM(){
+
+    int maxLevel = config.get<int>("MLMC.maxLevel",5);
+
+    int nel0 = config.get<int>("MLMC.CoarseMeshElements",8);
+    
+    M_1D.resize(maxLevel);  M.resize(maxLevel);
+
+    M_1D[0] = (double)nel0 + 1.0;
+    M[0]    = M_1D[0] * M_1D[0];
+    for (int i = 1; i < maxLevel + 1; i++){
+      M_1D[i] = 2.0 * M_1D[i-1] - 1.0;
+      M[i] = M_1D[i] * M_1D[i];
+    }
+
+  }
+
+  double inline getM(int level){ return M[level]; }
+
+
+  double inline getSample(int l, RandomField& z){
+
+      z.user_random_field(false); // Draw Random Sample from Prior
+
+      double QoI = Solve(l,z);
+
+      if (l > 0){QoI -= Solve(l - 1,z);}
+
+      return QoI;
+
+  }
+
+  double inline Solve(int l, RandomField& z) const{
 
 
     const int numDof = 12;
@@ -214,10 +228,6 @@ public:
     x = 0.0;
     Dune::PDELab::interpolate(initial_solution,gfs,x);
 
-    Dune::VTKWriter<LGV> vtkwriter2(gv,Dune::VTK::conforming);
-    Dune::PDELab::addSolutionToVTKWriter(vtkwriter2,gfs,x);
-    vtkwriter2.write("initial_solution",Dune::VTK::appendedraw);
-
     typedef Dune::PDELab::ISTLBackend_SEQ_CG_AMG_SSOR<GO> SEQ_CG_AMG_SSOR;
       SEQ_CG_AMG_SSOR ls(MaxIt,0);
 
@@ -232,14 +242,14 @@ public:
 
     using Dune::PDELab::Backend::native;
 
-    std::cout << "Degrees of Freedom = " << native(x).size() << std::endl;
+    //std::cout << "Degrees of Freedom = " << native(x).size() << std::endl;
 
     typedef Dune::PDELab::GridFunctionSpace<LGV, FEM0, CON, VectorBackend> P0_GFS;
           P0_GFS gfs0(gv,fem0,con); gfs0.name("FC");
 
     double Q = QuantityofInterest<RandomField,P0_GFS,GFS,MBE,V,LGV,numDof>(z,gfs0,gfs,mbe,x,gv,PatchSize * L[0],E2/G12,tau_y);
 
-    std::cout << Q << std::endl;
+   // std::cout << Q << std::endl;
 
     return Q;
   }
@@ -247,6 +257,8 @@ public:
   void inline refineGrid(int l = 1){ grid.globalRefine(l);}
 
 private:
+
+  std::vector<double> M_1D, M;
 
 
 
